@@ -7,7 +7,9 @@
 #The size of the vertices is affected by the total rating received - the higher the size in positive -> the higher the rating.
 #The larger the size in negative -> the lower the rating
 #The shape of the vertices: * Triangle for total negative ratings. * Circle for total positive ratings
+from collections import defaultdict
 
+import numpy as np
 import matplotlib
 import networkx as nx
 import pandas as pd
@@ -83,6 +85,128 @@ def DrawingGraph (G):
     plt.tight_layout()
     plt.show()
 
+def BehavioralHomophily(G):
+    """
+    This function analyzes behavioral homophily in a directed user rating graph.
+    Specifically, it tests whether users who tend to give positive ratings
+    (e.g., "Positive raters") are more likely to receive positive ratings
+    from users with similar rating behavior.
+
+    Steps:
+    1. Classify users by their rating pattern:
+    - For each user, compute the average rating they give (i.e., average weight of outgoing edges).
+    - Label as:
+    "Positive rater" if average rating > 2,
+    "Negative rater" if average rating < -2,
+    "Neutral" otherwise.
+
+    2. For each edge, check whether the source and target belong to the same group.
+    - Count edges where both users are in the same group (Positive/Negative/Neutral).
+    - Compute behavioral homophily index:
+    H = (number of edges between users in the same group) / (total number of edges)
+
+    :param G:
+    :return: None
+    """
+
+
+    # --- Assigning users to groups based on the average ratings they give --
+    DividingUsersToGroups = {}
+    for node in G.nodes:
+        outEdges = G.out_edges(node, data=True)
+        if not outEdges:
+            DividingUsersToGroups[node] = 'neutral'
+            continue
+
+        ratings = [data['weight'] for (_, _, data) in outEdges]
+        avg = sum(ratings) / len(ratings)
+        if avg > 2:
+            DividingUsersToGroups[node] = 'positive'
+        elif avg < -2:
+            DividingUsersToGroups[node] = 'negative'
+        else:
+            DividingUsersToGroups[node] = 'neutral'
+
+    # --- Cross-team edges statistics  ---
+    edgeStats = defaultdict(lambda: defaultdict(int)) # Nested Dictionary Data Structure
+    for u, v in G.edges:
+        if u in DividingUsersToGroups and v in DividingUsersToGroups:
+            edgeStats[DividingUsersToGroups[u]][DividingUsersToGroups[v]] += 1
+    print(edgeStats)
+
+    # --- Calculating homophily rates for the entire group ---
+    HomophilyPerGroup = []
+    for group in ['positive', 'neutral', 'negative']:
+        groupOutEdges = edgeStats[group] #The groups that have edges from the current group
+        totalEdgesFromGroup = sum(groupOutEdges.values()) # Total outgoing edges for each group
+        if totalEdgesFromGroup == 0:
+            HomophilyPerGroup.append((group, 0, 0, 0))
+            continue
+        sameGroup = groupOutEdges.get(group, 0)
+        sameRatio = sameGroup / totalEdgesFromGroup
+        HomophilyPerGroup.append((group, totalEdgesFromGroup, sameGroup, sameRatio))
+
+
+    totalEdgesInGraph = G.number_of_edges()
+    sameGroupTotal = sum(edgeStats[g][g] for g in edgeStats)
+    overallHomophily = sameGroupTotal / totalEdgesInGraph if totalEdgesInGraph > 0 else 0
+
+    groups = ['positive', 'neutral', 'negative']
+
+    # --- Describing out edges to the different groups in a bar graph ---
+    # Data: From HomophilyPerGroup calculates the ratio within and outside the group
+    sameRatios = []
+    differentRatios = []
+
+    for group, total, same, sameRatio in HomophilyPerGroup:
+        sameRatios.append(sameRatio)
+        differentRatios.append(1 - sameRatio)
+
+    # Column location
+    x = np.arange(len(groups))
+    width = 0.35  # width of each column
+
+    # drawing bar graph
+    fig, ax = plt.subplots()
+    sameRatiosBars = ax.bar(x - width / 2, sameRatios, width, label='same group', color='skyblue')
+    OtherGroupsBars = ax.bar(x + width / 2, differentRatios, width, label='Other groups', color='lightcoral')
+
+    # designing of bar graph
+    ax.set_ylabel('Rating rate')
+    ax.set_title('Rating rate for each group')
+    ax.set_xticks(x)
+    ax.set_xticklabels(groups)
+    ax.legend()
+
+    # Adding values to the columns
+    for bar in sameRatiosBars + OtherGroupsBars:
+        height = bar.get_height()
+        ax.annotate(f'{height:.2f}',
+                    xy=(bar.get_x() + bar.get_width() / 2, height),
+                    xytext=(0, 3),  # Offset to text height
+                    textcoords="offset points",
+                    ha='center', va='bottom')
+
+    plt.tight_layout()
+    plt.show()
+
+    # --- printing results ---
+    results_text = "\n📊 Ranking rates within and between groups:\n"
+    for group, total, same, ratio in HomophilyPerGroup:
+        if total == 0:
+            results_text += f"{group}: No outgoing edges\n"
+        else:
+            results_text += (
+                f"• {group}:\n"
+                f"  - total out edges: {total}\n"
+                f"  - To the same group: {same} ({ratio:.2%})\n"
+                f"  - For other groups : {total - same} ({1 - ratio:.2%})\n\n"
+            )
+
+    results_text += f"📈 General homophily index (all edges within the same group): {overallHomophily:.2%}"
+    print (results_text)
+
+
 file_path = "largest_scc_edges.csv"
 chunksize = 100000  # Number of lines in each chunk
 
@@ -104,9 +228,8 @@ with open(file_path, 'rt') as f:
                 year=row["year"]  # שמור את השנה כ-attribute
             )
 
-
-DrawingGraph(graph)
-
+#DrawingGraph(graph)
+BehavioralHomophily(graph)
 
 
 # colors = [node_colors[node] for node in G_my.nodes()]

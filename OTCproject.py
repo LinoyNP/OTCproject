@@ -7,8 +7,7 @@
 #The size of the vertices is affected by the total rating received - the higher the size in positive -> the higher the rating.
 #The larger the size in negative -> the lower the rating
 #The shape of the vertices: * Triangle for total negative ratings. * Circle for total positive ratings
-from collections import defaultdict
-
+from collections import defaultdict,Counter
 import numpy as np
 import matplotlib
 import networkx as nx
@@ -16,7 +15,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 matplotlib.use("TkAgg")
 
-def DrawingGraph (G):
+def settingOfSCCgraph (G):
     # Setting a color for each vertex
     node_colors = {}
     for node in G.nodes():
@@ -31,6 +30,8 @@ def DrawingGraph (G):
         else:
             node_colors[node] = 'blue'  # Default for those who do not have an incoming arc
 
+        G.nodes[node]['color'] = node_colors[node]
+
 
     # Calculating the sum of ratings the node received
     node_sentiment = {}
@@ -44,46 +45,136 @@ def DrawingGraph (G):
     max_size = max(sizes_raw.values()) if sizes_raw else 1
     normalized_sizes = {node: 300 + 1200 * (size / max_size) for node, size in sizes_raw.items()}
 
-    pos = nx.spring_layout(G, seed=42, k=0.3)
-    plt.figure(figsize=(14, 10))
+    #Saving the node size as its attribute
+    for node, size in normalized_sizes.items():
+        G.nodes[node]['size'] = size
 
-    positive_nodes = [node for node in G.nodes() if node_sentiment[node] >= 0]
-    negative_nodes = [node for node in G.nodes() if node_sentiment[node] < 0]
+    #Saving the shape of the node as its attribute
+    for node in G.nodes():
+        if node_sentiment[node] >= 0:
+            G.nodes[node]['shape'] = 'o'
+        else:
+            G.nodes[node]['shape'] = '^'
 
-    # Drawing positive nodes (circles)
-    nx.draw_networkx_nodes(
+    #Graph drawing
+    def drawingGraph(G):
+        pos = nx.spring_layout(G, seed=42, k=0.3)
+        plt.figure(figsize=(14, 10))
+
+        positiveNodes = [node for node in G.nodes() if G.nodes[node]['shape'] == 'o']
+        negativeNodes = [node for node in G.nodes() if G.nodes[node]['shape'] == '^']
+
+        # Drawing positive nodes (circles)
+        nx.draw_networkx_nodes(
+            G,
+            pos,
+            nodelist=positiveNodes,
+            node_size=[normalized_sizes[n] for n in positiveNodes],
+            node_color=[node_colors[n] for n in positiveNodes],
+            node_shape='o',
+            edgecolors='black',
+            alpha=0.9
+        )
+
+        # Drawing negative nodes (triangles)
+        nx.draw_networkx_nodes(
+            G,
+            pos,
+            nodelist=negativeNodes,
+            node_size=[normalized_sizes[n] for n in negativeNodes],
+            node_color=[node_colors[n] for n in negativeNodes],
+            node_shape='^',
+            edgecolors='black',
+            alpha=0.9
+        )
+
+        # edges
+        nx.draw_networkx_edges(G, pos, edge_color='gray', alpha=0.5)
+
+        # labels
+        # nx.draw_networkx_labels(G_my, pos, font_size=9)
+
+        plt.title("Trust Graph with Sentiment-based Shapes and Year-based Colors")
+        plt.axis('off')
+        plt.tight_layout()
+        plt.show()
+    #drawingGraph(G)
+
+def printInformSourceGraph():
+    """
+    A function that prints the following data of the source graph:
+    Number of vertices
+    Number of edges
+    Number of connecting elements
+    Number of edges of the largest connecting element
+    :return: None
+    """
+    file_path = "BitCoin.csv"
+    chunksize = 100000  # Number of lines in each chunk
+
+    G = nx.DiGraph()  # Creating an empty directed graph
+
+    # Reading the file in chunks and gradually adding the information to the graph
+    with open(file_path, 'rt') as f:
+        for chunk in pd.read_csv(f, names=["source", "target", "weight", "time"], skiprows=1, chunksize=chunksize):
+            chunk["time"] = pd.to_datetime(chunk["time"], format="%d/%m/%Y")
+            for _, row in chunk.iterrows():
+                G.add_edge(row["source"], row["target"], weight=row["weight"], time=row["time"].timestamp())
+
+    # Analyze strongly connected components
+    sccs = list(nx.strongly_connected_components(G))
+    print(f"\n🔍 Found {len(sccs)} strongly connected components.")
+
+    # Sort by size
+    sccs_sorted = sorted(sccs, key=len, reverse=True)
+
+    for i, component in enumerate(sccs_sorted[:10], start=1):  # Show top 10 components
+        print(f"Component #{i} contains {len(component)} nodes.")
+
+    largest_scc = sccs_sorted[0]
+    print(f"\n⭐ The largest component contains {len(largest_scc)} nodes.")
+
+    # print number of edges in the largest component
+    largest_scc_subgraph = G.subgraph(largest_scc)
+    print(f"   It has {largest_scc_subgraph.number_of_edges()} edges.")
+    print(f"Number of nodes in the graph: {G.number_of_nodes()}")
+    print(f"Number of edges in the graph: {G.number_of_edges()}")
+
+    # Graph drawing
+    plt.figure(figsize=(12, 8))
+    pos = nx.spring_layout(G, seed=42)
+    nx.draw(
         G,
         pos,
-        nodelist=positive_nodes,
-        node_size=[normalized_sizes[n] for n in positive_nodes],
-        node_color=[node_colors[n] for n in positive_nodes],
-        node_shape='o',
-        edgecolors='black',
-        alpha=0.9
+        with_labels=True,
+        node_color='lightblue',
+        edge_color='gray',
+        node_size=500,
+        font_size=8,
+        arrows=True,
+        arrowsize=15
     )
-
-    # Drawing negative nodes (triangles)
-    nx.draw_networkx_nodes(
-        G,
-        pos,
-        nodelist=negative_nodes,
-        node_size=[normalized_sizes[n] for n in negative_nodes],
-        node_color=[node_colors[n] for n in negative_nodes],
-        node_shape='^',
-        edgecolors='black',
-        alpha=0.9
-    )
-
-    # edges
-    nx.draw_networkx_edges(G, pos, edge_color='gray', alpha=0.5)
-
-    # labels
-    # nx.draw_networkx_labels(G_my, pos, font_size=9)
-
-    plt.title("Trust Graph with Sentiment-based Shapes and Year-based Colors")
-    plt.axis('off')
-    plt.tight_layout()
+    plt.title("Directed Graph Visualization")
     plt.show()
+
+
+def printInformOfBiggestSCCGraph(G):
+    """
+    A function that prints the data on the subgraph - the largest SCC
+    :param G: A graph constructed from networkX
+    :return:
+    """
+
+    #Printing the number of vertices of each color
+    colors = [G.nodes[node]['color'] for node in G.nodes()]
+    color_counts = Counter(colors)
+    for color, count in color_counts.items():
+        print(f"{color}: {count} nodes")
+
+    positiveCount = sum(1 for node in G.nodes() if G.nodes[node].get('shape') == 'o')
+    negativeCount = sum(1 for node in G.nodes() if G.nodes[node].get('shape') == '^')
+    print(f"Number of positively rated nodes (circles): {positiveCount}")
+    print(f"Number of negatively rated nodes (triangles): {negativeCount}")
 
 def BehavioralHomophily(G):
     """
@@ -105,7 +196,7 @@ def BehavioralHomophily(G):
     - Compute behavioral homophily index:
     H = (number of edges between users in the same group) / (total number of edges)
 
-    :param G:
+    :param G: A graph constructed from networkX
     :return: None
     """
 
@@ -228,9 +319,9 @@ with open(file_path, 'rt') as f:
                 year=row["year"]  # שמור את השנה כ-attribute
             )
 
-#DrawingGraph(graph)
-BehavioralHomophily(graph)
-
+# settingOfSCCgraph(graph)
+# BehavioralHomophily(graph)
+#printInformSourceGraph()
 
 # colors = [node_colors[node] for node in G_my.nodes()]
 # nx.draw(G_my, with_labels=True, node_color=colors, edge_color='gray')

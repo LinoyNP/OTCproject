@@ -100,6 +100,54 @@ def settingOfSCCgraph (G):
         plt.show()
     #drawingGraph(G)
 
+def plot_total_degree_distribution(G):
+    """
+    Plots the total degree distribution for the entire graph using log-log scale.
+    """
+    degrees = [G.degree(n) for n in G.nodes()]
+    values, counts = np.unique(degrees, return_counts=True)
+
+    plt.figure(figsize=(7, 5))
+    plt.bar(values, counts, color='gray', edgecolor='black', width=0.8)
+    plt.xscale('log')
+    plt.yscale('log')
+    plt.xlabel("Degree (log scale)")
+    plt.ylabel("Number of Nodes (log scale)")
+    plt.title("Total Degree Distribution (Log-Log Scale)")
+    plt.grid(True, which="both", ls="--", linewidth=0.5)
+    plt.tight_layout()
+    plt.savefig("loglog_degree_dist_all_nodes.png")
+    plt.show()
+
+
+def plot_degree_distribution_by_color(G):
+    """
+    Plots the degree distribution for each color group using log-log scale.
+    """
+    from collections import defaultdict
+
+    degree_by_color = defaultdict(list)
+
+    for node in G.nodes():
+        color = G.nodes[node].get('color', 'blue')  # Default is blue
+        degree = G.degree(node)
+        degree_by_color[color].append(degree)
+
+    for color, degrees in degree_by_color.items():
+        values, counts = np.unique(degrees, return_counts=True)
+
+        plt.figure(figsize=(7, 5))
+        plt.bar(values, counts, color=color, edgecolor='black', width=0.8)
+        plt.xscale('log')
+        plt.yscale('log')
+        plt.xlabel("Degree (log scale)")
+        plt.ylabel("Number of Nodes (log scale)")
+        plt.title(f"Degree Distribution (Log-Log) - {color.capitalize()} Nodes")
+        plt.grid(True, which="both", ls="--", linewidth=0.5)
+        plt.tight_layout()
+        plt.savefig(f"loglog_degree_dist_{color}.png")
+        plt.show()
+
 def printInformSourceGraph():
     """
     A function that prints the following data of the source graph:
@@ -337,3 +385,7 @@ with open(file_path, 'rt') as f:
 # #     font_size=10
 # # )
 # plt.show()
+
+settingOfSCCgraph(graph)
+plot_total_degree_distribution(graph)
+plot_degree_distribution_by_color(graph)

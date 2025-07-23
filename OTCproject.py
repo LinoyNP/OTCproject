@@ -100,10 +100,9 @@ def settingOfSCCgraph (G):
         plt.show()
     #drawingGraph(G)
 
+import matplotlib.ticker as ticker
+
 def plot_total_degree_distribution(G):
-    """
-    Plots the total degree distribution for the entire graph using log-log scale.
-    """
     degrees = [G.degree(n) for n in G.nodes()]
     values, counts = np.unique(degrees, return_counts=True)
 
@@ -111,6 +110,14 @@ def plot_total_degree_distribution(G):
     plt.bar(values, counts, color='gray', edgecolor='black', width=0.8)
     plt.xscale('log')
     plt.yscale('log')
+
+    # פורמט הטיקים להצגת הערך האמיתי ולא בצורה מדעית
+    ax = plt.gca()
+    ax.xaxis.set_major_formatter(ticker.ScalarFormatter())
+    ax.yaxis.set_major_formatter(ticker.ScalarFormatter())
+    ax.xaxis.set_minor_formatter(ticker.NullFormatter())
+    ax.yaxis.set_minor_formatter(ticker.NullFormatter())
+
     plt.xlabel("Degree (log scale)")
     plt.ylabel("Number of Nodes (log scale)")
     plt.title("Total Degree Distribution (Log-Log Scale)")
@@ -119,11 +126,7 @@ def plot_total_degree_distribution(G):
     plt.savefig("loglog_degree_dist_all_nodes.png")
     plt.show()
 
-
 def plot_degree_distribution_by_color(G):
-    """
-    Plots the degree distribution for each color group using log-log scale.
-    """
     from collections import defaultdict
 
     degree_by_color = defaultdict(list)
@@ -140,6 +143,13 @@ def plot_degree_distribution_by_color(G):
         plt.bar(values, counts, color=color, edgecolor='black', width=0.8)
         plt.xscale('log')
         plt.yscale('log')
+
+        ax = plt.gca()
+        ax.xaxis.set_major_formatter(ticker.ScalarFormatter())
+        ax.yaxis.set_major_formatter(ticker.ScalarFormatter())
+        ax.xaxis.set_minor_formatter(ticker.NullFormatter())
+        ax.yaxis.set_minor_formatter(ticker.NullFormatter())
+
         plt.xlabel("Degree (log scale)")
         plt.ylabel("Number of Nodes (log scale)")
         plt.title(f"Degree Distribution (Log-Log) - {color.capitalize()} Nodes")
@@ -147,6 +157,7 @@ def plot_degree_distribution_by_color(G):
         plt.tight_layout()
         plt.savefig(f"loglog_degree_dist_{color}.png")
         plt.show()
+
 
 def printInformSourceGraph():
     """

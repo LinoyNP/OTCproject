@@ -13,6 +13,7 @@ import matplotlib
 import networkx as nx
 import pandas as pd
 import matplotlib.pyplot as plt
+import powerlaw
 matplotlib.use("TkAgg")
 
 def settingOfSCCgraph (G):
@@ -235,6 +236,85 @@ def printInformOfBiggestSCCGraph(G):
     print(f"Number of positively rated nodes (circles): {positiveCount}")
     print(f"Number of negatively rated nodes (triangles): {negativeCount}")
 
+def powerLaw(G):
+    degrees = np.array([d for _, d in G.degree()], dtype=int)
+    degrees = degrees[degrees > 0]
+    fit = powerlaw.Fit(degrees)
+
+    # --- power law of all degrees ---
+    #fit = powerlaw.Fit(degrees[degrees > 0])
+    # Graphing: Rank distribution vs. fit to a power law
+    plt.figure()
+    fit.plot_pdf(label='Empirical')
+    fit.power_law.plot_pdf(color='r', linestyle='--', label='Power law fit')
+    plt.xlabel("Degree")
+    plt.ylabel("P(k)")
+    plt.legend()
+    plt.title("Power-law Degree Distribution OTC")
+    plt.show()
+    # print power-law exponent (beta)
+    print(f"Estimated power-law exponent (beta): {fit.power_law.alpha:.2f}")
+    print(f"the xmin is: {fit.xmin}")
+
+    def analyzeColor(G, colorName):
+        """
+        Analyzes the degree distribution of nodes with a given color in the graph,
+        fits a power law model, and prints key statistics.
+        :param G: networkx.Graph The input graph. Each node is expected to have 'color' and 'shape' attributes
+        :param colorName: str that represents the color of node
+        :return: powerlaw.Fit or None
+                Returns a powerlaw.Fit object containing the power law fit results
+                for nodes with the specified color.
+                If no nodes with positive degree exist for this color, returns None
+        """
+
+        # Nodes with the desired color
+        nodesColor = [n for n, attr in G.nodes(data=True) if attr.get('color') == colorName]
+
+        # The degrees of the nodes in this color
+        degrees = np.array([G.degree(n) for n in nodesColor], dtype=int)
+        degrees = degrees[degrees > 0]
+
+        if len(degrees) == 0:
+            print(f"No nodes with color {colorName} have positive degree.")
+            return None
+
+        fit = powerlaw.Fit(degrees)
+
+        print(f"Color: {colorName}")
+        print(f"  Estimated alpha: {fit.power_law.alpha:.2f}")
+        print(f"  xmin: {fit.xmin}")
+        print(f"  Number of nodes: {len(degrees)}")
+
+        return fit
+
+    #Representation of the possession law for each color
+    allColors = set(attr.get('color') for _, attr in G.nodes(data=True))
+    allColors.discard(None)
+
+    # --- Analysis for each color ---
+    fitsByColor = {}
+    for color in allColors:
+        fit = analyzeColor(G, color)
+        if fit is not None:
+            fitsByColor[color] = fit
+
+    # --- Drawing all the graphs (power law for each color) side by side ---
+    numColors = len(fitsByColor)
+    plt.figure(figsize=(5*numColors,5))  # Size according to the number of colors
+
+    for i, (color, fit) in enumerate(fitsByColor.items(), start=1):
+        plt.subplot(1, numColors, i)
+        fit.plot_pdf(label='Empirical')
+        fit.power_law.plot_pdf(linestyle='--', label='Power law fit')
+        plt.xlabel("Degree")
+        plt.ylabel("P(k)")
+        plt.title(f"Color: {color}")
+        plt.legend()
+
+    plt.tight_layout()
+    plt.show()
+
 def BehavioralHomophily(G):
     """
     This function analyzes behavioral homophily in a directed user rating graph.
@@ -382,6 +462,11 @@ with open(file_path, 'rt') as f:
 # BehavioralHomophily(graph)
 #printInformSourceGraph()
 
+settingOfSCCgraph(graph)
+# plot_total_degree_distribution(graph)
+# plot_degree_distribution_by_color(graph)
+powerLaw(graph)
+
 # colors = [node_colors[node] for node in G_my.nodes()]
 # nx.draw(G_my, with_labels=True, node_color=colors, edge_color='gray')
 
@@ -397,6 +482,3 @@ with open(file_path, 'rt') as f:
 # # )
 # plt.show()
 
-settingOfSCCgraph(graph)
-plot_total_degree_distribution(graph)
-plot_degree_distribution_by_color(graph)

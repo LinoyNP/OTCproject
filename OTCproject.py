@@ -510,12 +510,12 @@ with open(file_path, 'rt') as f:
 # BehavioralHomophily(graph)
 #printInformSourceGraph()
 
-settingOfSCCgraph(graph)
+# settingOfSCCgraph(graph)
 # plot_total_degree_distribution(graph)
 # plot_degree_distribution_by_color(graph)
 #powerLaw(graph)
 #printInformOfBiggestSCCGraph(graph)
-pageRank(graph)
+# pageRank(graph)
 
 
 # colors = [node_colors[node] for node in G_my.nodes()]
@@ -533,6 +533,6 @@ pageRank(graph)
 # # )
 # plt.show()
 
-settingOfSCCgraph(graph)
-plot_total_degree_distribution(graph)
-plot_degree_distribution_by_color(graph)
+# settingOfSCCgraph(graph)
+# plot_total_degree_distribution(graph)
+# plot_degree_distribution_by_color(graph)

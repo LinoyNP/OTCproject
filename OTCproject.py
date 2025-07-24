@@ -235,7 +235,7 @@ def printInformOfBiggestSCCGraph(G):
     negativeCount = sum(1 for node in G.nodes() if G.nodes[node].get('shape') == '^')
     print(f"Number of positively rated nodes (circles): {positiveCount}")
     print(f"Number of negatively rated nodes (triangles): {negativeCount}")
-
+    print(f"average shortest path = {nx.average_shortest_path_length(G)}")
 def powerLaw(G):
     degrees = np.array([d for _, d in G.degree()], dtype=int)
     degrees = degrees[degrees > 0]
@@ -314,6 +314,32 @@ def powerLaw(G):
 
     plt.tight_layout()
     plt.show()
+
+def pageRank(G):
+    # ===Build a positive-weights subgraph from SCC_G ===
+    Gpositive = nx.DiGraph()
+    for u, v, data in G.edges(data=True):
+        if data['weight'] > 0:
+            Gpositive.add_edge(u, v, weight=data['weight'])
+    pagerank = nx.pagerank(Gpositive, weight='weight')  # PageRank
+    top10 = sorted(pagerank.items(), key=lambda x: x[1], reverse=True)[:10]
+    print(f"\nTop 10 nodes by pagerank:")
+    for node, val in top10:
+        print(f"{node}: {val:.4f}")
+    reciprocalPositivePairs = []
+    for i in top10:
+        for j in top10:
+            if i != j:
+                if Gpositive.has_edge(i, j) and G[i][j].get("weight", 0) > 0:
+                    print("yes")
+                    if Gpositive.has_edge(j, i) and G[j][i].get("weight", 0) > 0:
+                        reciprocalPositivePairs.append((i, j))
+
+    print("Top user pairs with mutually positive ratings")
+    if len(reciprocalPositivePairs) == 0:
+        print("No pairs of top users with mutually positive ratings were found.")
+    for pair in reciprocalPositivePairs:
+        print(f"{pair[0]} ↔ {pair[1]}")
 
 def BehavioralHomophily(G):
     """
@@ -465,7 +491,9 @@ with open(file_path, 'rt') as f:
 settingOfSCCgraph(graph)
 # plot_total_degree_distribution(graph)
 # plot_degree_distribution_by_color(graph)
-powerLaw(graph)
+#powerLaw(graph)
+#printInformOfBiggestSCCGraph(graph)
+pageRank(graph)
 
 # colors = [node_colors[node] for node in G_my.nodes()]
 # nx.draw(G_my, with_labels=True, node_color=colors, edge_color='gray')

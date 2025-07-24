@@ -104,6 +104,19 @@ def settingOfSCCgraph (G):
 import matplotlib.ticker as ticker
 
 def plot_total_degree_distribution(G):
+    """
+       Plots the total degree distribution of all nodes in the graph G using a log-log scale.
+
+       Parameters:
+           G (networkx.Graph): The input graph.
+
+       Behavior:
+           - Calculates the degree for each node.
+           - Counts the number of nodes for each degree.
+           - Plots a bar chart (log-log scale) of degree vs. node count.
+           - Formats axis ticks to use plain numbers (not scientific notation).
+           - Saves the plot as 'loglog_degree_dist_all_nodes.png' and displays it.
+       """
     degrees = [G.degree(n) for n in G.nodes()]
     values, counts = np.unique(degrees, return_counts=True)
 
@@ -112,7 +125,6 @@ def plot_total_degree_distribution(G):
     plt.xscale('log')
     plt.yscale('log')
 
-    # פורמט הטיקים להצגת הערך האמיתי ולא בצורה מדעית
     ax = plt.gca()
     ax.xaxis.set_major_formatter(ticker.ScalarFormatter())
     ax.yaxis.set_major_formatter(ticker.ScalarFormatter())
@@ -126,24 +138,71 @@ def plot_total_degree_distribution(G):
     plt.savefig("loglog_degree_dist_all_nodes.png")
     plt.show()
 
+def get_most_connected_node(G):
+    """
+    Finds the node with the highest total degree in the graph G.
+
+    Parameters:
+        G (networkx.Graph): The input graph.
+
+    Returns:
+        node (int or str): The node ID with the highest degree.
+    """
+    return max(G.nodes(), key=lambda n: G.degree(n))
+def analyze_node_trust(G, node_id):
+    """
+    Analyzes whether a node is generally trusted, distrusted, or neutral based on incoming edge weights.
+
+    Parameters:
+        G (networkx.DiGraph): Directed graph with weighted edges.
+        node_id (int or str): The ID of the node to analyze.
+
+    Behavior:
+        - Sums the weights of incoming edges.
+        - Prints trust status based on the sum.
+    """
+    if node_id in G.nodes():
+        incoming_weights = [G.edges[u, v]['weight'] for u, v in G.in_edges(node_id)]
+        total_rating = sum(incoming_weights)
+        print(f"Node {node_id} total rating: {total_rating}")
+        if total_rating > 0:
+            print(f"Node {node_id} is generally trusted (positive total ratings).")
+        elif total_rating < 0:
+            print(f"Node {node_id} is generally distrusted (negative total ratings).")
+        else:
+            print(f"Node {node_id} has neutral ratings (sum is zero).")
+    else:
+        print(f"Node {node_id} not found in the graph.")
+
 def plot_degree_distribution_by_color(G):
+    """
+       Plots the degree distribution for nodes in graph G, grouped by their 'color' attribute.
+       Also analyzes the most connected node to determine its trust based on incoming edge weights.
+
+       Parameters:
+           G (networkx.Graph): The input graph where nodes may have a 'color' attribute and
+                               edges have a 'weight' attribute.
+
+       Behavior:
+           - Groups node degrees by color.
+           - For each color group, plots a bar chart of degree vs. node count (log-log scale).
+           - Saves each plot as 'loglog_degree_nodecount_<color>.png' and displays it.
+           - Finds the node with the highest degree for testing purposes
+       """
     from collections import defaultdict
 
     degree_by_color = defaultdict(list)
 
-    # מחשבים את הדרגה הכוללת לכל קודקוד ומחלקים לפי צבע
     for node in G.nodes():
         color = G.nodes[node].get('color', 'blue')
         degree = G.degree(node)  # סך הדרגות
         degree_by_color[color].append(degree)
 
     for color, degrees in degree_by_color.items():
-        # סופרים כמה קודקודים יש לכל דרגה
         degree_counts = defaultdict(int)
         for d in degrees:
             degree_counts[d] += 1
 
-        # מפרידים ל־X ו־Y: כמה קודקודים יש עם דרגה מסוימת
         sorted_degrees = sorted(degree_counts.items())
         x = [count for degree, count in sorted_degrees]
         y = [degree for degree, count in sorted_degrees]
@@ -166,21 +225,11 @@ def plot_degree_distribution_by_color(G):
         plt.tight_layout()
         plt.savefig(f"loglog_degree_nodecount_{color}.png")
         plt.show()
-    #רצינו לבדוק את הקודקוד המפורסם זה הכי מקושר לכולם האם הוא מדורג בתור אמין ולכן הוא כל כך מקושר
-    node_id = 35  # הקודקוד שרוצים לבדוק
 
-    if node_id in graph.nodes():
-        incoming_weights = [graph.edges[u, v]['weight'] for u, v in graph.in_edges(node_id)]
-        total_rating = sum(incoming_weights)
-        print(f"Node {node_id} total rating: {total_rating}")
-        if total_rating > 0:
-            print("Node 35 is generally trusted (received positive ratings).")
-        elif total_rating < 0:
-            print("Node 35 is generally distrusted (received negative ratings).")
-        else:
-            print("Node 35 has neutral ratings (sum is zero).")
-    else:
-        print(f"Node {node_id} not found in the graph.")
+    # Find and analyze the most connected node
+    most_connected = get_most_connected_node(G)
+    analyze_node_trust(G, most_connected)
+
 def printInformSourceGraph():
     """
     A function that prints the following data of the source graph:

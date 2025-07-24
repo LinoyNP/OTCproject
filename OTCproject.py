@@ -23,7 +23,7 @@ def settingOfSCCgraph (G):
         incoming_years = [G.edges[u, v]['year'] for u, v in G.in_edges(node)]
         if incoming_years:  # If there are incoming arcs
             last_year = max(incoming_years)
-            print(last_year)
+            #print(last_year)
             if 2014 <= last_year <= 2016:
                 node_colors[node] = 'red'
             else:
@@ -109,6 +109,7 @@ def plot_total_degree_distribution(G):
 
     plt.figure(figsize=(7, 5))
     plt.bar(values, counts, color='gray', edgecolor='black', width=0.8)
+    plt.bar(values, counts, color='black',width=0.5)
     plt.xscale('log')
     plt.yscale('log')
 
@@ -120,9 +121,9 @@ def plot_total_degree_distribution(G):
     ax.yaxis.set_minor_formatter(ticker.NullFormatter())
 
     plt.xlabel("Degree (log scale)")
-    plt.ylabel("Number of Nodes (log scale)")
-    plt.title("Total Degree Distribution (Log-Log Scale)")
-    plt.grid(True, which="both", ls="--", linewidth=0.5)
+    plt.xlabel("Number of Nodes")
+    plt.ylabel("Degree")
+    plt.title("Degree Distribution")
     plt.tight_layout()
     plt.savefig("loglog_degree_dist_all_nodes.png")
     plt.show()
@@ -133,12 +134,14 @@ def plot_degree_distribution_by_color(G):
     degree_by_color = defaultdict(list)
 
     for node in G.nodes():
-        color = G.nodes[node].get('color', 'blue')  # Default is blue
-        degree = G.degree(node)
+        color = G.nodes[node].get('color', 'blue')
+        degree = G.degree(node)  # סך הדרגות
         degree_by_color[color].append(degree)
 
     for color, degrees in degree_by_color.items():
-        values, counts = np.unique(degrees, return_counts=True)
+
+        # מפרידים ל־X ו־Y: כמה קודקודים יש עם דרגה מסוימת
+        sorted_degrees = sorted(degree_counts.items())
 
         plt.figure(figsize=(7, 5))
         plt.bar(values, counts, color=color, edgecolor='black', width=0.8)
@@ -152,14 +155,16 @@ def plot_degree_distribution_by_color(G):
         ax.yaxis.set_minor_formatter(ticker.NullFormatter())
 
         plt.xlabel("Degree (log scale)")
-        plt.ylabel("Number of Nodes (log scale)")
-        plt.title(f"Degree Distribution (Log-Log) - {color.capitalize()} Nodes")
-        plt.grid(True, which="both", ls="--", linewidth=0.5)
+        plt.xlabel("Number of Nodes")
+        plt.ylabel("Degree Value")
+        plt.title("Degree Distribution")
         plt.tight_layout()
         plt.savefig(f"loglog_degree_dist_{color}.png")
         plt.show()
 
 
+
+        total_rating = sum(incoming_weights)
 def printInformSourceGraph():
     """
     A function that prints the following data of the source graph:
@@ -495,6 +500,7 @@ settingOfSCCgraph(graph)
 #printInformOfBiggestSCCGraph(graph)
 pageRank(graph)
 
+
 # colors = [node_colors[node] for node in G_my.nodes()]
 # nx.draw(G_my, with_labels=True, node_color=colors, edge_color='gray')
 
@@ -510,3 +516,6 @@ pageRank(graph)
 # # )
 # plt.show()
 
+settingOfSCCgraph(graph)
+plot_total_degree_distribution(graph)
+plot_degree_distribution_by_color(graph)

@@ -8,13 +8,12 @@
 #The larger the size in negative -> the lower the rating
 #The shape of the vertices: * Triangle for total negative ratings. * Circle for total positive ratings
 from collections import defaultdict,Counter
-import matplotlib.ticker as ticker
 import numpy as np
 import matplotlib
 import networkx as nx
 import pandas as pd
-matplotlib.use("TkAgg")
 import matplotlib.pyplot as plt
+matplotlib.use("TkAgg")
 
 def settingOfSCCgraph (G):
     # Setting a color for each vertex
@@ -23,7 +22,7 @@ def settingOfSCCgraph (G):
         incoming_years = [G.edges[u, v]['year'] for u, v in G.in_edges(node)]
         if incoming_years:  # If there are incoming arcs
             last_year = max(incoming_years)
-            #print(last_year)
+            print(last_year)
             if 2014 <= last_year <= 2016:
                 node_colors[node] = 'red'
             else:
@@ -101,12 +100,14 @@ def settingOfSCCgraph (G):
         plt.show()
     #drawingGraph(G)
 
+import matplotlib.ticker as ticker
+
 def plot_total_degree_distribution(G):
     degrees = [G.degree(n) for n in G.nodes()]
     values, counts = np.unique(degrees, return_counts=True)
 
     plt.figure(figsize=(7, 5))
-    plt.bar(values, counts, color='black',width=0.5)
+    plt.bar(values, counts, color='gray', edgecolor='black', width=0.8)
     plt.xscale('log')
     plt.yscale('log')
 
@@ -117,37 +118,29 @@ def plot_total_degree_distribution(G):
     ax.xaxis.set_minor_formatter(ticker.NullFormatter())
     ax.yaxis.set_minor_formatter(ticker.NullFormatter())
 
-    plt.xlabel("Number of Nodes")
-    plt.ylabel("Degree")
-    plt.title("Degree Distributionn")
+    plt.xlabel("Degree (log scale)")
+    plt.ylabel("Number of Nodes (log scale)")
+    plt.title("Total Degree Distribution (Log-Log Scale)")
+    plt.grid(True, which="both", ls="--", linewidth=0.5)
     plt.tight_layout()
     plt.savefig("loglog_degree_dist_all_nodes.png")
     plt.show()
 
-
 def plot_degree_distribution_by_color(G):
+    from collections import defaultdict
+
     degree_by_color = defaultdict(list)
 
-    # מחשבים את הדרגה הכוללת לכל קודקוד ומחלקים לפי צבע
     for node in G.nodes():
-        color = G.nodes[node].get('color', 'blue')
-        degree = G.degree(node)  # סך הדרגות
+        color = G.nodes[node].get('color', 'blue')  # Default is blue
+        degree = G.degree(node)
         degree_by_color[color].append(degree)
 
     for color, degrees in degree_by_color.items():
-        # סופרים כמה קודקודים יש לכל דרגה
-        degree_counts = defaultdict(int)
-        for d in degrees:
-            degree_counts[d] += 1
+        values, counts = np.unique(degrees, return_counts=True)
 
-        # מפרידים ל־X ו־Y: כמה קודקודים יש עם דרגה מסוימת
-        sorted_degrees = sorted(degree_counts.items())
-        x = [count for degree, count in sorted_degrees]
-        y = [degree for degree, count in sorted_degrees]
-
-        plt.figure(figsize=(8, 6))
-        plt.bar(x, y, color=color, edgecolor='black', width=0.5)
-
+        plt.figure(figsize=(7, 5))
+        plt.bar(values, counts, color=color, edgecolor='black', width=0.8)
         plt.xscale('log')
         plt.yscale('log')
 
@@ -157,27 +150,15 @@ def plot_degree_distribution_by_color(G):
         ax.xaxis.set_minor_formatter(ticker.NullFormatter())
         ax.yaxis.set_minor_formatter(ticker.NullFormatter())
 
-        plt.xlabel("Number of Nodes")
-        plt.ylabel("Degree Value")
-        plt.title("Degree Distribution")
+        plt.xlabel("Degree (log scale)")
+        plt.ylabel("Number of Nodes (log scale)")
+        plt.title(f"Degree Distribution (Log-Log) - {color.capitalize()} Nodes")
+        plt.grid(True, which="both", ls="--", linewidth=0.5)
         plt.tight_layout()
-        plt.savefig(f"loglog_degree_nodecount_{color}.png")
+        plt.savefig(f"loglog_degree_dist_{color}.png")
         plt.show()
-    #רצינו לבדוק את הקודקוד המפורסם זה הכי מקושר לכולם האם הוא מדורג בתור אמין ולכן הוא כל כך מקושר
-    node_id = 35  # הקודקוד שרוצים לבדוק
 
-    if node_id in graph.nodes():
-        incoming_weights = [graph.edges[u, v]['weight'] for u, v in graph.in_edges(node_id)]
-        total_rating = sum(incoming_weights)
-        print(f"Node {node_id} total rating: {total_rating}")
-        if total_rating > 0:
-            print("Node 35 is generally trusted (received positive ratings).")
-        elif total_rating < 0:
-            print("Node 35 is generally distrusted (received negative ratings).")
-        else:
-            print("Node 35 has neutral ratings (sum is zero).")
-    else:
-        print(f"Node {node_id} not found in the graph.")
+
 def printInformSourceGraph():
     """
     A function that prints the following data of the source graph:

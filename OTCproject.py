@@ -510,14 +510,6 @@ with open(file_path, 'rt') as f:
 # BehavioralHomophily(graph)
 #printInformSourceGraph()
 
-settingOfSCCgraph(graph)
-# plot_total_degree_distribution(graph)
-# plot_degree_distribution_by_color(graph)
-#powerLaw(graph)
-#printInformOfBiggestSCCGraph(graph)
-pageRank(graph)
-
-
 # colors = [node_colors[node] for node in G_my.nodes()]
 # nx.draw(G_my, with_labels=True, node_color=colors, edge_color='gray')
 

@@ -385,6 +385,87 @@ def powerLaw(G):
     plt.tight_layout()
     plt.show()
 
+def analyze_power_law(degrees, label, color='gray'):
+    """
+    Fits power law to given degrees and returns the fit object.
+    Also prints key statistics.
+    """
+    degrees = np.array(degrees)
+    degrees = degrees[degrees > 0]
+
+    if len(degrees) == 0:
+        print(f"No nodes with positive degree for {label}.")
+        return None
+
+    fit = powerlaw.Fit(degrees)
+
+    print(f"{label} - Estimated alpha: {fit.power_law.alpha:.2f}, xmin: {fit.xmin}, N: {len(degrees)}")
+    return fit
+def plot_combined_degree_and_powerlaw(G):
+    """
+    Plots combined degree distributions and power law fits for:
+    - All nodes
+    - Nodes grouped by color
+    All in a single log-log plot for comparison.
+    """
+    plt.figure(figsize=(10, 7))
+    # ---------- ALL NODES ----------
+    degrees_all = [G.degree(n) for n in G.nodes()]
+    values_all, counts_all = np.unique(degrees_all, return_counts=True)
+    total_nodes_all = len(degrees_all)
+    probabilities_all = counts_all / total_nodes_all
+    plt.bar(values_all, probabilities_all, label='All Nodes Empirical PDF', color='grey', alpha=0.5, width=0.8)
+    #plt.bar(values_all, counts_all, label='All Nodes Degree Dist.', color='black', alpha=0.5, width=0.8)
+
+    # Power law fit for all nodes
+    fit_all = analyze_power_law(degrees_all, "All Nodes")
+    if fit_all:
+        fit_all.plot_pdf(label='Empirical')
+        fit_all.power_law.plot_pdf(color='black', linestyle='--', label='All Nodes Power Law Fit')
+
+    # ---------- BY COLOR ----------
+    # Get all existing colors in the graph
+    allColors = set(attr.get('color') for _, attr in G.nodes(data=True))
+    allColors.discard(None)
+
+    for color in allColors:
+        # Nodes with this color
+        nodesColor = [n for n, attr in G.nodes(data=True) if attr.get('color') == color]
+        degrees = np.array([G.degree(n) for n in nodesColor], dtype=int)
+        degrees = degrees[degrees > 0]
+
+        if len(degrees) == 0:
+            print(f"No nodes with color {color} have positive degree.")
+            continue
+
+        # Degree distribution bar plot for this color
+        total_nodes = len(degrees)
+        values, counts = np.unique(degrees, return_counts=True)
+        probabilities = counts / total_nodes
+        plt.bar(values, probabilities, label=f'{color} Degree Dist.', alpha=0.5, width=0.5, color = color)
+
+        # Power law fit
+        fit = analyze_power_law(degrees, f"Color: {color}", color=color)
+        if fit:
+            fit.plot_pdf(color=color, label=f'{color} Empirical')
+            fit.power_law.plot_pdf(color=color, linestyle='--', label=f'{color} Power Law Fit')
+
+    # ---------- FORMATTING ----------
+    plt.xscale('log')
+    plt.yscale('log')
+    ax = plt.gca()
+    ax.xaxis.set_major_formatter(ticker.ScalarFormatter())
+    ax.yaxis.set_major_formatter(ticker.ScalarFormatter())
+    ax.xaxis.set_minor_formatter(ticker.NullFormatter())
+    ax.yaxis.set_minor_formatter(ticker.NullFormatter())
+
+    plt.xlabel("Degree")
+    plt.ylabel("Probability P(k)")
+    plt.title("Combined Degree Distributions (as PDFs) & Power Law Fits")
+    plt.legend()
+    plt.tight_layout()
+    plt.show()
+
 def pageRank(G):
     # ===Build a positive-weights subgraph from SCC_G ===
     Gpositive = nx.DiGraph()
@@ -555,7 +636,7 @@ with open(file_path, 'rt') as f:
                 year=row["year"]  # שמור את השנה כ-attribute
             )
 
-# settingOfSCCgraph(graph)
+settingOfSCCgraph(graph)
 # BehavioralHomophily(graph)
 #printInformSourceGraph()
 
@@ -565,6 +646,7 @@ with open(file_path, 'rt') as f:
 #powerLaw(graph)
 #printInformOfBiggestSCCGraph(graph)
 # pageRank(graph)
+plot_combined_degree_and_powerlaw(graph)
 
 
 # colors = [node_colors[node] for node in G_my.nodes()]

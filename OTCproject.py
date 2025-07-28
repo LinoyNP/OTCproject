@@ -1288,235 +1288,6 @@ with open(file_path, 'rt') as f:
                 weight=row["weight"],
                 year=row["year"]  # שמור את השנה כ-attribute
             )
-###################################################################################
-#
-# def directed_graph_modularity_with_communities(G: nx.DiGraph, use_weights=True):
-#     """
-#     Detects communities in a directed graph (by temporarily converting it to undirected),
-#     computes the modularity score, and returns both the score and the community structure.
-#
-#     :param G: A directed NetworkX graph (DiGraph)
-#     :param use_weights: Whether to use edge weights
-#     :return: tuple:
-#         - modularity_score (float): the modularity value
-#         - community_dict (dict): mapping of node -> community index
-#         - communities (list of sets): list of communities as sets of nodes
-#     """
-#     # Convert to undirected graph for community detection
-#     G_undirected = G.to_undirected()
-#
-#     # Detect communities using the greedy modularity algorithm
-#     communities = list(
-#         greedy_modularity_communities(
-#             G_undirected,
-#             weight='weight' if use_weights else None
-#         )
-#     )
-#
-#     # Compute modularity using the original directed graph
-#     modularity_score = modularity(G,communities,weight='weight' if use_weights else None)
-#
-#     # Build node -> community mapping
-#     community_dict = {}
-#     for i, comm in enumerate(communities):
-#         for node in comm:
-#             community_dict[node] = i
-#
-#     print(f"Modularity: {modularity_score:.4f}")
-#     print(f"Number of communities: {len(communities)}")
-#     # for i, comm in enumerate(communities):
-#         # print(f"Community {i + 1}: {sorted(comm)}")
-#
-#     return modularity_score, community_dict, communities
-#
-# def directed_graph_modularity(G: nx.DiGraph, use_weights=True):
-#     """
-#     מקבלת גרף מכוון, מזהה קהילות ומחזירה את המודולריות שלהן.
-#
-#     :param G: גרף מכוון (nx.DiGraph)
-#     :param use_weights: האם להשתמש במשקלים
-#     :return: ערך המודולריות (float)
-#     """
-#     # יוצרים גרף לא מכוון לצורך גילוי קהילות (אלגוריתם greedy לא עובד על גרפים מכוונים)
-#     G_undirected = G.to_undirected()
-#
-#     # זיהוי קהילות באמצעות greedy modularity
-#     communities = list(greedy_modularity_communities(G_undirected, weight='weight' if use_weights else None))
-#
-#     # חישוב מודולריות לפי הגרף המקורי (המכוון)
-#     mod = modularity(G, communities, weight='weight' if use_weights else None)
-#
-#     return mod
-#
-#
-# def spreading_mode(G):
-#     import pandas as pd
-#     import networkx as nx
-#     import matplotlib.pyplot as plt
-#     import numpy as np
-#     import random
-#
-#     # =====================
-#     # Color Assignment by Rating
-#     # =====================
-#     def compute_average_rating(G):
-#         node_avg_rating = {}
-#         for node in G.nodes():
-#             in_edges = G.in_edges(node, data=True)
-#             if in_edges:
-#                 avg = sum(data.get('weight', 1.0) for _, _, data in in_edges) / len(in_edges)
-#                 node_avg_rating[node] = avg
-#             else:
-#                 node_avg_rating[node] = 0
-#         return node_avg_rating
-#
-#     def assign_colors_by_rating(G):
-#         avg_rating = compute_average_rating(G)
-#         for node in G.nodes():
-#             avg = avg_rating.get(node, 0)
-#             if avg <= -2:
-#                 color = 'red'
-#             elif -2 < avg < 2:
-#                 color = 'yellow'
-#             else:
-#                 color = 'blue'
-#             G.nodes[node]['color'] = color
-#
-#     assign_colors_by_rating(G)
-#
-#     # =====================
-#     # Spreading function (with regulation set injection)
-#     # =====================
-#     def spread_message(G, source_nodes, p, steps=10, regulation_set=None):
-#         informed = set(source_nodes)
-#         history = []
-#
-#         for _ in range(steps):
-#             new_informed = set(informed)
-#             for node in informed:
-#                 node_color = G.nodes[node]['color']
-#                 for neighbor in G.neighbors(node):
-#                     if neighbor in informed:
-#                         continue
-#                     neighbor_color = G.nodes[neighbor]['color']
-#                     prob = p if node_color == neighbor_color else (1 - p)
-#                     if random.random() < prob:
-#                         new_informed.add(neighbor)
-#
-#             if regulation_set:
-#                 new_informed |= regulation_set
-#
-#             informed = new_informed
-#             reds = sum(1 for n in informed if G.nodes[n]['color'] == 'red')
-#             yellows = sum(1 for n in informed if G.nodes[n]['color'] == 'yellow')
-#             history.append((reds, yellows))
-#
-#         return history
-#
-#     # =====================
-#     # Regulation functions
-#     # =====================
-#     def rlr_set(rho):
-#         return set(random.sample(list(G.nodes()), int(len(G) * rho)))
-#
-#     def blue_only_set(rho):
-#         yellow_nodes = [n for n in G.nodes if G.nodes[n]['color'] == 'yellow']
-#         return set(random.sample(yellow_nodes, int(len(yellow_nodes) * rho))) if yellow_nodes else set()
-#
-#     # =====================
-#     # Averaging Function
-#     # =====================
-#     def average_spread(G, source_selector, p, steps=10, regulation_set_generator=None, runs=100):
-#         reds_all = np.zeros(steps)
-#         yellows_all = np.zeros(steps)
-#         valid_runs = 0
-#
-#         for _ in range(runs):
-#             source_nodes = source_selector()
-#             if not source_nodes:
-#                 continue  # skip if no red nodes
-#             reg_set = regulation_set_generator() if regulation_set_generator else None
-#             history = spread_message(G, source_nodes, p, steps, regulation_set=reg_set)
-#             reds = np.array([r for r, y in history])
-#             yellows = np.array([y for r, y in history])
-#             reds_all += reds
-#             yellows_all += yellows
-#             valid_runs += 1
-#
-#         if valid_runs == 0:
-#             return np.zeros(steps), np.zeros(steps)
-#
-#         return reds_all / valid_runs, yellows_all / valid_runs
-#
-#     def select_random_reds(k=1):
-#         red_nodes = [n for n in G.nodes if G.nodes[n]['color'] == 'red']
-#         if len(red_nodes) < k:
-#             return []
-#         return random.sample(red_nodes, k)
-#
-#     # =====================
-#     # Run Scenarios
-#     # =====================
-#     scenarios = {
-#         "Strong No-Reg": (1.0, None),
-#         "p=0.7 No-Reg": (0.7, None),
-#         "Strong RLR(0.25)": (1.0, lambda: rlr_set(0.25)),
-#         "p=0.7 RLR(0.25)": (0.7, lambda: rlr_set(0.25)),
-#         "Strong BlueOnly(0.25)": (1.0, lambda: blue_only_set(0.25)),
-#         "p=0.7 BlueOnly(0.25)": (0.7, lambda: blue_only_set(0.25)),
-#     }
-#
-#     average_results = {}
-#     for label, (p_val, reg_fn) in scenarios.items():
-#         reds_avg, yellows_avg = average_spread(G, select_random_reds, p=p_val,
-#                                                regulation_set_generator=reg_fn, steps=10, runs=100)
-#         average_results[label] = (reds_avg, yellows_avg)
-#
-#     # =====================
-#     # Plot Results
-#     # =====================
-#     plt.figure(figsize=(10, 6))
-#     colors = {
-#         "p=0.7 No-Reg": "orange",
-#         "p=0.7 RLR(0.25)": "purple",
-#         "Strong No-Reg": "blue",
-#         "Strong RLR(0.25)": "green",
-#         "Strong BlueOnly(0.25)": "brown",
-#         "p=0.7 BlueOnly(0.25)": "red"
-#     }
-#
-#     for label, (reds, yellows) in average_results.items():
-#         plt.plot(reds, label=f"{label} – Red", linestyle='--', color=colors[label])
-#         plt.plot(yellows, label=f"{label} – Yellow", linestyle='-', color=colors[label])
-#
-#     plt.xlabel("Time Step")
-#     plt.ylabel("Average Informed Users")
-#     plt.title("Average Spread Over 100 Runs (with Regulation Support)")
-#     plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
-#     plt.tight_layout()
-#     plt.show()
-#
-#     # =====================
-#     # Compute Echo Chamber Metrics
-#     # =====================
-#     print("\n=== Echo Chamber Metrics ===")
-#     for label, (reds_avg, yellows_avg) in average_results.items():
-#         alpha = reds_avg[-1] + yellows_avg[-1]
-#         phi_red = reds_avg[-1] / alpha if alpha > 0 else 0
-#         phi_yellow = yellows_avg[-1] / alpha if alpha > 0 else 0
-#         print(f"{label}:")
-#         print(f"  α (size) = {alpha:.2f}, ϕ_red = {phi_red:.2f}, ϕ_yellow = {phi_yellow:.2f}")
-#
-# mod, comm_dict, comms = directed_graph_modularity_with_communities(graph)
-# print(f"Total number of communities: {len(comms)}")
-# for i, comm in enumerate(comms, start=1):
-#     print(f"Community {i} has {len(comm)} nodes")
-# print(directed_graph_modularity(graph))
-##############################################################################################################
-
-
-
-
 settingOfSCCgraph(graph)
 # BehavioralHomophily(graph)
 #printInformSourceGraph()
@@ -1555,10 +1326,8 @@ def print_spread_summary(G, informed_nodes, seed_node):
     """
     # Count total nodes by their 'color' attribute in the graph
     total_nodes_by_color = Counter(nx.get_node_attributes(G, 'color').values())
-
     # Count how many nodes of each color are in the informed set
     informed_colors = Counter(G.nodes[n]['color'] for n in informed_nodes)
-
     # Get the color of the seed node, or 'Unknown' if missing
     seed_color = G.nodes[seed_node].get('color', 'Unknown')
 
@@ -1567,8 +1336,9 @@ def print_spread_summary(G, informed_nodes, seed_node):
     for color, total_count in total_nodes_by_color.items():
         informed_count = informed_colors.get(color, 0)
         remaining = total_count - informed_count
-        print(f"  Color '{color}': {informed_count} / {total_count} nodes informed, remaining: {remaining}")
-
+        percent_informed = (informed_count / total_count * 100) if total_count > 0 else 0
+        print(
+            f"  Color '{color}': {informed_count} / {total_count} nodes informed ({percent_informed:.2f}%), remaining: {remaining}")
 
 def FM(spreader_color, neighbor_color, P, Q):
     """
@@ -1696,96 +1466,10 @@ def spread_message_IC_with_all(G, seed_nodes, P, Q, FU_dict,
     ec_metrics = EC(history)
     return history, ec_metrics, informed
 
+red_nodes = [n for n in graph.nodes() if graph.nodes[n].get("color") == "red"]
+sorted_red_nodes = sorted(red_nodes, key=lambda n: graph.in_degree(n) + graph.out_degree(n), reverse=True)
 
-
-def plot_echo_chamber(ec_metrics):
-    """
-    Plot Echo Chamber fractions over time.
-
-    Parameters:
-    - ec_metrics: list of dicts with keys 'step', 'red_fraction', 'blue_fraction'
-    """
-    steps = [m['step'] for m in ec_metrics]
-    red_frac = [m['red_fraction'] for m in ec_metrics]
-    blue_frac = [m['blue_fraction'] for m in ec_metrics]
-
-    plt.figure(figsize=(10, 6))
-    plt.plot(steps, red_frac, label='Red faction fraction', color='red')
-    plt.plot(steps, blue_frac, label='Blue faction fraction', color='blue')
-    plt.xlabel('Step')
-    plt.ylabel('Fraction of informed nodes')
-    plt.title('Echo Chamber Dynamics Over Time')
-    plt.legend()
-    plt.grid(True)
-    plt.show()
-
-def visualize_spreading(G, informed_nodes, seed_node):
-    """
-    Visualizes the graph highlighting nodes that have received the message and the seed node.
-
-    Nodes that received the message are shown in their original color at a standard size.
-    Nodes that did NOT receive the message are shown in their original color but with a larger size.
-    The seed node (starting node of the spreading process) is highlighted with a bold red border.
-
-    Parameters:
-    - G (networkx.Graph or networkx.DiGraph): The network graph with 'color' attribute on nodes.
-    - informed_nodes (set): Set of nodes that have been informed (received the message).
-    - seed_node: The node from which spreading started.
-
-    Displays:
-    - A matplotlib plot visualizing the spreading process.
-    """
-    pos = nx.spring_layout(G, seed=42)  # Fixed layout for consistent visualization
-
-    node_colors = []
-    node_sizes = []
-
-    for node in G.nodes():
-        color = G.nodes[node].get('color', 'gray')  # Default color if missing
-        if node in informed_nodes:
-            size = 300  # Standard size for informed nodes
-        else:
-            size = 700  # Larger size for uninformed nodes to highlight them
-        node_colors.append(color)
-        node_sizes.append(size)
-
-    plt.figure(figsize=(12, 9))
-    nx.draw_networkx_nodes(G, pos,
-                           node_color=node_colors,
-                           node_size=node_sizes,
-                           edgecolors='black',
-                           alpha=0.9)
-
-    nx.draw_networkx_edges(G, pos, alpha=0.5)
-    nx.draw_networkx_labels(G, pos, font_size=8)
-
-    # Highlight the seed node with a large red border
-    nx.draw_networkx_nodes(G, pos,
-                           nodelist=[seed_node],
-                           node_color='none',
-                           node_size=1500,
-                           edgecolors='red',
-                           linewidths=3)
-
-    plt.title("Visualization of Spreading Process\n"
-              "Informed nodes: normal size and color\n"
-              "Uninformed nodes: larger size\n"
-              "Seed node highlighted with red border")
-    plt.axis('off')
-    plt.tight_layout()
-    plt.show()
-
-
-def get_node_with_highest_total_degree(G):
-    """
-    Return the node with the highest total degree (in-degree + out-degree).
-    """
-    return max(G.nodes(), key=lambda n: G.in_degree(n) + G.out_degree(n))
-
-starting_node = get_node_with_highest_total_degree(graph)  # graph הוא הגרף שלך
-seed_nodes = [starting_node]
-FU_dict = {node: 0.5 for node in graph.nodes()}
-
+seed_nodes = [sorted_red_nodes[0]]
 
 def example_FR(informed):
     uninformed_nodes = list(set(graph.nodes()) - informed)
@@ -1796,19 +1480,49 @@ def example_FR(informed):
     return set(random.sample(uninformed_nodes, num_to_add))
 
 
-history, ec_metrics, informed = spread_message_IC_with_all(
-    graph,
-    seed_nodes,
-    P=0.7,
-    Q=0.3,
-    FU_dict=FU_dict,
-    steps=15,
-    regulation_set_generator=example_FR
-)
+num_runs = 30
+steps = 15
 
-print_spread_summary(graph, informed, starting_node)
+all_histories = []
+all_ec_metrics = []
+all_informed_counts = []
+informed = 0
 
-plot_echo_chamber(ec_metrics)
+for _ in range(num_runs):
+    FU_dict = {node: random.uniform(0.2, 0.6) for node in graph.nodes()}
+    history, ec_metrics, informed = spread_message_IC_with_all(
+        graph,
+        seed_nodes,
+        P=0.7,
+        Q=0.3,
+        FU_dict=FU_dict,
+        steps=steps,
+        regulation_set_generator=example_FR
+    )
+    all_histories.append(history)
+    all_ec_metrics.append(ec_metrics)
+    all_informed_counts.append([sum(step.values()) for step in history])
 
-# visualize_spreading(graph, informed, starting_node)
 
+max_len = max(len(run) for run in all_informed_counts)
+
+padded_counts = [
+    run + [run[-1]] * (max_len - len(run)) if run else [0] * max_len
+    for run in all_informed_counts
+]
+
+avg_informed_per_step = np.mean(padded_counts, axis=0)
+steps_range = range(len(avg_informed_per_step))
+
+plt.figure(figsize=(10, 6))
+plt.plot(steps_range, avg_informed_per_step, label='Average informed', color='blue', linewidth=2)
+
+plt.xlabel("Step")
+plt.ylabel("Number of informed nodes")
+plt.title("Average message spread over 30 runs")
+plt.grid(True)
+plt.legend()
+plt.tight_layout()
+plt.show()
+
+print_spread_summary(graph, informed, seed_nodes[0])

@@ -14,6 +14,11 @@ import networkx as nx
 import pandas as pd
 import matplotlib.pyplot as plt
 import powerlaw
+from networkx.algorithms.community import louvain_communities
+from networkx.algorithms.community.quality import modularity
+from collections import Counter
+
+import matplotlib.cm as cm
 matplotlib.use("TkAgg")
 
 def settingOfSCCgraph (G):
@@ -451,6 +456,7 @@ def plot_combined_degree_and_powerlaw(G):
             fit.power_law.plot_pdf(color=color, linestyle='--', label=f'{color} Power Law Fit')
 
     # ---------- FORMATTING ----------
+    plt.xlim(left=fit_all.xmin)
     plt.xscale('log')
     plt.yscale('log')
     ax = plt.gca()
@@ -458,6 +464,7 @@ def plot_combined_degree_and_powerlaw(G):
     ax.yaxis.set_major_formatter(ticker.ScalarFormatter())
     ax.xaxis.set_minor_formatter(ticker.NullFormatter())
     ax.yaxis.set_minor_formatter(ticker.NullFormatter())
+
 
     plt.xlabel("Degree")
     plt.ylabel("Probability P(k)")
@@ -614,6 +621,135 @@ def BehavioralHomophily(G):
     results_text += f"📈 General homophily index (all edges within the same group): {overallHomophily:.2%}"
     print (results_text)
 
+def IdentifyingCommunities(G):
+    """
+    Detects communities in a directed graph using the Louvain method
+    and analyzes color-based attributes for each community.
+
+    Workflow:
+    1. Extracts a subgraph containing only positively weighted edges.
+    2. Copies relevant node attributes (e.g., color) from the original graph.
+    3. Converts the subgraph to undirected to apply Louvain community detection.
+    4. Computes the modularity score of the partition.
+    5. Prints the distribution of node colors per community.
+    6. Visualizes the communities with color-coded clusters.
+    :param G:  networkx.Graph
+    A directed graph where nodes may have attributes such as 'color',
+    and edges contain weights representing ratings (positive or negative).
+
+    modularity: float The modularity score of the detected partition.
+    """
+
+    def extract_positive_subgraph(G):
+        """
+        Filters the input graph to include only edges with positive weights.
+
+        :param G:networkx.Graph A directed graph where nodes may have attributes such as 'color',
+        and edges contain weights representing ratings (positive or negative).
+        :return:A copy of the subgraph with only positively weighted edges.
+        """
+        return G.edge_subgraph([(u, v) for u, v, d in G.edges(data=True) if d.get('weight', 0) > 0]).copy()
+
+    def copy_node_attributes(original_graph, subgraph):
+        """
+        Copies all node attributes (such as 'color') from the original graph
+        to the positive subgraph to preserve analysis metadata.
+
+        :param original_graph: networkx.Graph
+        :param subgraph: networkx.Graph
+        :return:
+        """
+        for node, attrs in original_graph.nodes(data=True):
+            if node in subgraph:
+                subgraph.nodes[node].update(attrs)
+
+    def compute_color_distribution(G, communities):
+        """
+        For each community, calculates the percentage of nodes
+        by color attribute (e.g., 'red', 'blue').
+
+        :param G:  G:networkx.Graph A directed graph where nodes may have attributes such as 'color',
+        and edges contain weights representing ratings (positive or negative).
+        :param communities: list of sets. Each set contains the nodes in a detected community
+        :return: List of dicts - each dict maps color to percentage within the community.
+
+        """
+        community_percentages = []
+        for i, community in enumerate(communities, 1):
+            color_counts = Counter()
+            total = 0
+
+            for node in community:
+                color = G.nodes[node].get('color')
+                if color is not None:
+                    color_counts[color] += 1
+                    total += 1
+            color_percentage = {}
+            print(f"\nCommunity {i} - Color distribution (%):")
+            if total > 0:
+                for color, count in sorted(color_counts.items()):
+                    percentage = (count / total) * 100
+                    color_percentage[color] = percentage
+                    print(f"  {color}: {percentage:.2f}%")
+            else:
+                print("  No color data available.")
+            community_percentages.append(color_percentage)
+        return community_percentages
+
+    def draw_communities_colored(G, communities, title="Community Graph"):
+        """
+        Visualizes the graph with nodes colored by community assignment.
+        G : G:networkx. Graph A directed graph where nodes may have attributes such as 'color',
+        and edges contain weights representing ratings (positive or negative).
+        communities : list of sets. Each set contains the nodes in a detected community.
+        title : str
+            Title of the plot.
+
+        :param G:
+        :param communities:
+        :param title:
+        :return:
+        """
+        color_distributions = compute_color_distribution(G_undirected, communities)
+        pos = nx.spring_layout(G, seed=42)
+
+        plt.figure(figsize=(10, 8))
+
+        for i, community in enumerate(communities):
+            label = f"Community {i + 1}"
+
+            # If color distribution provided, add it to label
+            if color_distributions and i < len(color_distributions):
+                parts = [f"{color}:{pct:.1f}%" for color, pct in sorted(color_distributions[i].items())]
+                label += " (" + ", ".join(parts) + ")"
+
+            nx.draw_networkx_nodes(
+                G, pos,
+                nodelist=list(community),
+                node_color=f"C{i}",
+                label=label,
+                node_size=100,
+                alpha=0.8
+            )
+
+        nx.draw_networkx_edges(G, pos, alpha=0.3)
+        plt.title(title)
+        plt.axis('off')
+        plt.legend()
+        plt.show()
+
+    G_pos = extract_positive_subgraph(G)
+    copy_node_attributes(G, G_pos)
+    G_undirected = G_pos.to_undirected()
+
+    communities = louvain_communities(G_undirected, weight='weight')
+    mod = modularity(G_undirected, communities, weight='weight')
+
+    print(f"\n✅ Modularity: {mod:.3f}")
+    print(f"✅ Number of communities found: {len(communities)}")
+    compute_color_distribution(G_undirected, communities)
+    draw_communities_colored(G_undirected, communities)
+
 
 file_path = "largest_scc_edges.csv"
 chunksize = 100000  # Number of lines in each chunk
@@ -647,7 +783,7 @@ settingOfSCCgraph(graph)
 #printInformOfBiggestSCCGraph(graph)
 # pageRank(graph)
 plot_combined_degree_and_powerlaw(graph)
-
+IdentifyingCommunities(graph)
 
 # colors = [node_colors[node] for node in G_my.nodes()]
 # nx.draw(G_my, with_labels=True, node_color=colors, edge_color='gray')

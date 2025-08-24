@@ -849,6 +849,7 @@ def PrintGraph(final_avg):
     plt.xlabel("Iteration Step")
     plt.ylabel("Average Newly Activated Nodes")
     plt.grid(True, linestyle="--", alpha=0.6)
+    plt.savefig("Average.png", dpi=300)
     plt.show()
 
 def CalculateIter(seed_node):
@@ -877,7 +878,7 @@ def CalculateIter(seed_node):
         red_counts = []
         blue_counts = []
 
-        while newly_active and len(active) < graph.number_of_nodes():
+        while newly_active:
             next_new = set()
             for node in newly_active:
                 for _, neighbor, data in graph.out_edges(node, data=True):
@@ -1012,7 +1013,7 @@ SpreadIC()
 
 
 
-#NOT USED IN THE END------------------another version of SpreadIC---------------------------------
+#------------------another version of SpreadIC---------------------------------
 
 def SpreadICVer02():
     """

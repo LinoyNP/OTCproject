@@ -15,6 +15,7 @@ import matplotlib
 import networkx as nx
 import pandas as pd
 import math
+from sortedcontainers import SortedList
 import matplotlib.pyplot as plt
 import powerlaw
 from networkx.algorithms.community import louvain_communities
@@ -24,7 +25,7 @@ import random
 
 matplotlib.use("TkAgg")
 
-
+#-----------------------------------------------------create the graph--------------------------------------------------
 def settingOfSCCgraph (G):
     # Setting a color for each vertex
     node_colors = {}
@@ -313,6 +314,8 @@ def printInformOfBiggestSCCGraph(G):
     print(f"Number of positively rated nodes (circles): {positiveCount}")
     print(f"Number of negatively rated nodes (triangles): {negativeCount}")
     print(f"average shortest path = {nx.average_shortest_path_length(G)}")
+
+#----------------------------------------------------------------------powerLaw-----------------------------------------
 def powerLaw(G):
     degrees = np.array([d for _, d in G.degree()], dtype=int)
     degrees = degrees[degrees > 0]
@@ -475,6 +478,7 @@ def plot_combined_degree_and_powerlaw(G):
     plt.tight_layout()
     plt.show()
 
+#------------------------------------------------------------------------pageRank---------------------------------------
 def pageRank(G):
     # ===Build a positive-weights subgraph from SCC_G ===
     Gpositive = nx.DiGraph()
@@ -501,7 +505,7 @@ def pageRank(G):
     for pair in reciprocalPositivePairs:
         print(f"{pair[0]} ↔ {pair[1]}")
 
-
+#---------------------------------------------------------BehavioralHomophily-------------------------------------------
 def BehavioralHomophily(G):
     """
     This function analyzes behavioral homophily in a directed user rating graph.
@@ -623,6 +627,8 @@ def BehavioralHomophily(G):
     results_text += f"📈 General homophily index (all edges within the same group): {overallHomophily:.2%}"
     print (results_text)
 
+
+#-----------------------------------------------------------IdentifyingCommunities--------------------------------------
 def IdentifyingCommunities(G):
     """
     Detects communities in a directed graph using the Louvain method
@@ -631,7 +637,7 @@ def IdentifyingCommunities(G):
     Workflow:
     1. Extracts a subgraph containing only positively weighted edges.
     2. Copies relevant node attributes (e.g., color) from the original graph.
-    3. Converts the subgraph to undirected to apply Louvain community detection.
+    3. Converts the subgraph too undirected to apply Louvain community detection.
     4. Computes the modularity score of the partition.
     5. Prints the distribution of node colors per community.
     6. Visualizes the communities with color-coded clusters.
@@ -752,6 +758,190 @@ def IdentifyingCommunities(G):
     compute_color_distribution(G_undirected, communities)
     draw_communities_colored(G_undirected, communities)
 
+#-----------------------------------------Spread IC --------------------------------------------------------------------
+
+def CalculateTheProb(value):
+    """
+       Calculates the activation probability of an edge based on its weight.
+
+       Parameters:
+       - value (float or int): The weight of the edge
+
+       Returns:
+       - probability (float): Probability between 0.005 and 0.9, rounded to two decimal places
+       """
+    probability = max(0.005, min(0.1 + (value - 1) * 0.08, 0.9))
+    return int(probability * 100) / 100
+
+def AddProbToGraph():
+    """
+       Assigns a 'prob' attribute to all edges in the graph based on their weights.
+       Uses the CalculateTheProb function for each edge.
+
+       Parameters:
+       - Uses the global 'graph' object
+
+       Returns:
+       - None (modifies the graph in place)
+       """
+    # יצירת הסתברויות מהמשקלים
+    for u in graph.nodes():
+        for v, _, data in graph.in_edges(u, data=True):
+            data['prob'] = CalculateTheProb(data['weight'])
+
+
+def AvarageGroups(groups):
+    """
+        Takes multiple matrices of activation counts and computes the average
+        across all runs and all groups for each iteration step.
+
+        Parameters:
+        - groups (list of np.ndarray): Each matrix has shape (num_simulations, num_steps)
+
+        Returns:
+        - np.ndarray: 1D array containing the average number of newly activated nodes per iteration step
+        """
+    max_len = max(g.shape[1] for g in groups)
+    padded = []
+
+    for g in groups:
+        mat = np.zeros((g.shape[0], max_len))
+        mat[:, :g.shape[1]] = g
+        padded.append(mat)
+
+    all_runs = np.vstack(padded)
+
+    return all_runs.mean(axis=0)
+
+def CreateGroupsColors(color):
+    """
+       Creates two groups of nodes based on color: the last 30 nodes by out-degree
+       and the most connected node.
+
+       Parameters:
+       - color (str): 'red' or 'blue'
+
+       Returns:
+       - group_last (list): Last 30 nodes sorted by out-degree (least connected)
+       - group_most_connected (node): Node with the highest out-degree
+       """
+
+    nodes = [(n, graph.out_degree(n)) for n in graph.nodes() if graph.nodes[n].get("color") == color]
+    sorted_nodes = [n for n, _ in sorted(nodes, key=lambda x: x[1], reverse=True)]
+
+    group_last = sorted_nodes[-30:]
+    group_most_connected = sorted_nodes[0]
+
+    return group_last, group_most_connected
+
+def PrintGraph(final_avg):
+    """
+       Plots a line graph of the average number of newly activated nodes per iteration step.
+
+       Parameters:
+       - final_avg (np.ndarray): 1D array of average newly activated nodes per step
+
+       Returns:
+       - None (displays a matplotlib plot)
+       """
+    plt.figure(figsize=(8,5))
+    plt.plot(range(len(final_avg)), final_avg, marker='o')
+    plt.title("Average Spread per Iteration Step")
+    plt.xlabel("Iteration Step")
+    plt.ylabel("Average Newly Activated Nodes")
+    plt.grid(True, linestyle="--", alpha=0.6)
+    plt.show()
+
+def CalculateIter(seed_node):
+    """
+        Runs multiple simulations (100 by default) of the Independent Cascade (IC) model
+        starting from the given seed node(s), recording how many nodes are activated
+        per iteration.
+
+        Parameters:
+        - seed_node (list or set): Nodes to start the spread from
+
+        Returns:
+        - matrix (np.ndarray): Shape (100, max_steps), number of newly activated nodes per iteration
+        - avg_red (float): Average number of red nodes activated per simulation
+        - avg_blue (float): Average number of blue nodes activated per simulation
+        """
+    all_iter_counts = []
+    all_red_counts = []
+    all_blue_counts = []
+
+    for _ in range(100):
+        active = set(seed_node)
+        newly_active = set(seed_node)
+
+        iter_counts = []
+        red_counts = []
+        blue_counts = []
+
+        while newly_active and len(active) < len(graph.nodes()):
+            next_new = set()
+            for node in newly_active:
+                for _, neighbor, data in graph.out_edges(node, data=True):
+                    if neighbor not in active:
+                        if random.random() < data['prob']:
+                            next_new.add(neighbor)
+            active.update(next_new)
+            iter_counts.append(len(next_new))
+            red_counts.append(len(next_new & red_nodes))
+            blue_counts.append(len(next_new & blue_nodes))
+            newly_active = next_new
+
+        all_iter_counts.append(iter_counts)
+        all_red_counts.append(sum(red_counts))
+        all_blue_counts.append(sum(blue_counts))
+
+    max_len = max(len(x) for x in all_iter_counts)
+    matrix = np.zeros((100, max_len), dtype=int)
+    for i, run in enumerate(all_iter_counts):
+        matrix[i, :len(run)] = run
+
+    return matrix, np.mean(all_red_counts), np.mean(all_blue_counts)
+
+def SpreadIC():
+    """
+       Main function to run the Independent Cascade model on predefined groups of nodes,
+       calculate average activations, plot the spread over iterations, and print
+       the average percentages of red and blue nodes activated.
+
+       Parameters:
+       - None (uses the global 'graph', 'red_nodes', and 'blue_nodes')
+
+       Returns:
+       - None (prints percentages and shows the graph)
+       """
+
+    AddProbToGraph()
+
+    GroupRedLast30,GroupRedMostConnected = CreateGroupsColors("red")
+    GroupBlueLast30,GroupBlueMostConnected = CreateGroupsColors("blue")
+
+    AllGroups = []
+    red_totals = []
+    blue_totals = []
+
+    for group in [GroupRedLast30, [GroupRedMostConnected], GroupBlueLast30, [GroupBlueMostConnected]]:
+        mat, avg_red, avg_blue = CalculateIter(group)
+        AllGroups.append(mat)
+        red_totals.append(avg_red)
+        blue_totals.append(avg_blue)
+
+    red_activated_avg = np.mean(red_totals)
+    blue_activated_avg = np.mean(blue_totals)
+
+    red_percent = red_activated_avg / len(red_nodes) * 100
+    blue_percent = blue_activated_avg / len(blue_nodes) * 100
+
+    BigGroups = AvarageGroups(AllGroups)
+    PrintGraph(BigGroups)
+
+    print(f"Red activated (avg): {red_percent:.2f}%")
+    print(f"Blue activated (avg): {blue_percent:.2f}%")
+#----------------------------------------------------------- Start------------------------------------------------------
 
 file_path = "largest_scc_edges.csv"
 chunksize = 100000  # Number of lines in each chunk
@@ -761,7 +951,7 @@ graph = nx.DiGraph()  # Creating an empty directed graph
 # Reading the file in chunks and gradually adding the information to the graph
 with open(file_path, 'rt') as f:
     for chunk in pd.read_csv(f, names=["source", "target", "weight", "time"], skiprows=1, chunksize=chunksize):
-        #Convert time column to datetime column - format "%d/%m/%Y"
+        # Convert time column to datetime column - format "%d/%m/%Y"
         chunk["time"] = pd.to_datetime(chunk["time"], format="%d/%m/%Y", errors="coerce")
         chunk = chunk.dropna(subset=["time"])  # Removing rows with invalid dates
         chunk["year"] = chunk["time"].dt.year
@@ -774,6 +964,8 @@ with open(file_path, 'rt') as f:
                 year=row["year"]  # שמור את השנה כ-attribute
             )
 
+
+#-----------------------------------calls for the functions-------------------------------------------------------------
 settingOfSCCgraph(graph)
 #BehavioralHomophily(graph)
 #printInformSourceGraph()
@@ -787,201 +979,6 @@ settingOfSCCgraph(graph)
 #IdentifyingCommunities(graph)
 # colors = [node_colors[node] for node in G_my.nodes()]
 # nx.draw(G_my, with_labels=True, node_color=colors, edge_color='gray')
-
-#
-# def sigmoid(x, alpha):
-#     return 1 / (1 + math.exp(-alpha * x))
-#
-# alpha = 0.01
-# for u in graph.nodes():
-#     for v, _, data in graph.in_edges(u, data=True):
-#         data['prob'] = sigmoid(data['weight'], alpha)
-#
-#
-# def run_ic(graph, seed_node):
-#
-#     next_new = 1
-#     active = set([seed_node])
-#     newly_active = set([seed_node])
-#     iter_counts = []
-#
-#     red_nodes = {n for n in graph.nodes() if graph.nodes[n].get("color") == "red"}
-#     blue_nodes = set(graph.nodes()) - red_nodes
-#
-#     red_counts = []
-#     blue_counts = []
-#
-#     while newly_active and len(active) < len(graph.nodes()):
-#         next_new = set()
-#         for node in newly_active:
-#             for _, neighbor, data in graph.out_edges(node, data=True):
-#                 if neighbor not in active:
-#                     if random.random() < data['prob']:  # עכשיו המשקל הוא ההסתברות
-#                         next_new.add(neighbor)
-#         active.update(next_new)
-#         newly_active = next_new
-#         red_counts.append(len(next_new & red_nodes))
-#         blue_counts.append(len(next_new & blue_nodes))
-#         iter_counts.append(len(next_new))
-#
-#     return iter_counts, red_counts, blue_counts
-#
-# def influence(graph, seed_node, n_sim=1000):
-#     max_iters = 0
-#     all_iter_counts = []
-#     all_red_counts = []
-#     all_blue_counts = []
-#
-#     for _ in range(n_sim):
-#         iter_counts, red_counts, blue_counts = run_ic(graph, seed_node)
-#         max_iters = max(max_iters, len(iter_counts))
-#         all_iter_counts.append(iter_counts)
-#         all_red_counts.append(red_counts)
-#         all_blue_counts.append(blue_counts)
-#
-#     # ממוצע לכל איטרציה (לפי האורך המקסימלי)
-#     avg_total = np.zeros(max_iters)
-#     avg_red = np.zeros(max_iters)
-#     avg_blue = np.zeros(max_iters)
-#
-#     for sim in range(n_sim):
-#         for i, val in enumerate(all_iter_counts[sim]):
-#             avg_total[i] += val / n_sim
-#         for i, val in enumerate(all_red_counts[sim]):
-#             avg_red[i] += val / n_sim
-#         for i, val in enumerate(all_blue_counts[sim]):
-#             avg_blue[i] += val / n_sim
-#
-#     return avg_total, avg_red, avg_blue
-#
-# # שימוש
-# red_nodes = [n for n in graph.nodes() if graph.nodes[n].get("color") == "red"]
-# sorted_red_nodes = sorted(red_nodes, key=lambda n: graph.in_degree(n) + graph.out_degree(n), reverse=True)
-# seed_node = sorted_red_nodes[0]
-# avg_total, avg_red, avg_blue = influence(graph, seed_node, n_sim=1000)
-#
-#
-# iterations = range(1, len(avg_total)+1)
-#
-# plt.figure(figsize=(10,6))
-#
-# plt.plot(iterations, avg_total, label='Total active', color='black', linewidth=2)
-# plt.plot(iterations, avg_red, label='Red nodes active', color='red', linestyle='--', linewidth=2)
-# plt.plot(iterations, avg_blue, label='Blue nodes active', color='blue', linestyle='-.', linewidth=2)
-#
-# plt.xlabel('Iteration')
-# plt.ylabel('Average number of newly active nodes')
-# plt.title(f'Average spread per iteration')
-# plt.legend()
-# plt.grid(True)
-# plt.show()
-#
-# # אחוזים
-# total_nodes = len(graph.nodes())
-# avg_red_percent = (sum(avg_red)/total_nodes) * 100
-# avg_blue_percent = (sum(avg_blue)/total_nodes) * 100
-#
-# print(f"Average percentage of red nodes activated: {avg_red_percent:.2f}%")
-# print(f"Average percentage of blue nodes activated: {avg_blue_percent:.2f}%")
-
-
-def sigmoid(x, alpha=0.5):
-    return 1 / (1 + np.exp(-alpha * x))
-
-alpha = 0.1
-
-# יצירת הסתברויות מהמשקלים
-for u in graph.nodes():
-    for v, _, data in graph.in_edges(u, data=True):
-        data['prob'] = sigmoid(data['weight'], alpha)
-
-# בחירת seed node באמצע טווח הדרגות
-degrees = np.array([graph.degree(n) for n in graph.nodes()])
-median_degree = np.median(degrees)
-seed_node = min(graph.nodes(), key=lambda n: abs(graph.degree(n) - median_degree))
-
-# סימולציית IC עם סטטיסטיקה
-def run_ic_stats(graph, seed_node):
-    active = set([seed_node])
-    newly_active = set([seed_node])
-
-    red_nodes = {n for n in graph.nodes() if graph.nodes[n].get("color") == "red"}
-    blue_nodes = set(graph.nodes()) - red_nodes
-
-    iter_counts = []
-    red_counts = []
-    blue_counts = []
-
-    while newly_active:
-        next_new = set()
-        for node in newly_active:
-            for _, neighbor, data in graph.out_edges(node, data=True):
-                if neighbor not in active:
-                    if random.random() < data['prob']:
-                        next_new.add(neighbor)
-        active.update(next_new)
-        iter_counts.append(len(next_new))
-        red_counts.append(len(next_new & red_nodes))
-        blue_counts.append(len(next_new & blue_nodes))
-        newly_active = next_new
-
-    reason = "no new nodes" if len(active) < len(graph.nodes()) else "all nodes activated"
-    return iter_counts, red_counts, blue_counts, reason
-
-# הפעלת הסימולציה N פעמים
-def influence_stats(graph, seed_node, n_sim=500):
-    max_iters = 0
-    all_iter_counts = []
-    all_red_counts = []
-    all_blue_counts = []
-    reasons = []
-
-    for _ in range(n_sim):
-        iter_counts, red_counts, blue_counts, reason = run_ic_stats(graph, seed_node)
-        max_iters = max(max_iters, len(iter_counts))
-        all_iter_counts.append(iter_counts)
-        all_red_counts.append(red_counts)
-        all_blue_counts.append(blue_counts)
-        reasons.append(reason)
-
-    # ממוצע לכל איטרציה
-    avg_total = np.zeros(max_iters)
-    avg_red = np.zeros(max_iters)
-    avg_blue = np.zeros(max_iters)
-
-    for sim in range(n_sim):
-        for i, val in enumerate(all_iter_counts[sim]):
-            avg_total[i] += val / n_sim
-        for i, val in enumerate(all_red_counts[sim]):
-            avg_red[i] += val / n_sim
-        for i, val in enumerate(all_blue_counts[sim]):
-            avg_blue[i] += val / n_sim
-
-    # אחוזים מצטברים
-    cum_red_percent = np.cumsum(avg_red)/len(graph.nodes())*100
-    cum_blue_percent = np.cumsum(avg_blue)/len(graph.nodes())*100
-
-    avg_iters = np.mean([len(x) for x in all_iter_counts])
-    reason_counts = {r: reasons.count(r) for r in set(reasons)}
-
-    return avg_total, avg_red, avg_blue, cum_red_percent, cum_blue_percent, avg_iters, reason_counts
-
-# שימוש
-avg_total, avg_red, avg_blue, cum_red_percent, cum_blue_percent, avg_iters, reason_counts = influence_stats(graph, seed_node, n_sim=500)
-
-# גרף מצטבר אחוזים
-iterations = range(1, len(cum_red_percent)+1)
-plt.figure(figsize=(10,6))
-plt.plot(iterations, cum_red_percent, label='Red nodes cumulative %', color='red', linestyle='--', linewidth=2)
-plt.plot(iterations, cum_blue_percent, label='Blue nodes cumulative %', color='blue', linestyle='-.', linewidth=2)
-plt.xlabel('Iteration')
-plt.ylabel('Cumulative % of activated nodes')
-plt.title(f'Cumulative activation per iteration (seed node: {seed_node})')
-plt.legend()
-plt.grid(True)
-plt.show()
-
-print(f"Seed node (median degree): {seed_node}")
-print(f"Average number of iterations: {avg_iters:.2f}")
-print(f"Reasons for stopping:", reason_counts)
-
+red_nodes = {n for n in graph.nodes() if graph.nodes[n].get("color") == "red"}
+blue_nodes = set(graph.nodes()) - red_nodes
+SpreadIC()

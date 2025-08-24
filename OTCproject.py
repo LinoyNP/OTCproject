@@ -812,6 +812,29 @@ def AvarageGroups(groups):
 
     return all_runs.mean(axis=0)
 
+def PlotAveragePerGroup(groups, group_names):
+    """
+    Plots a separate graph for each group showing the average number
+    of newly activated nodes per iteration step across all runs.
+
+    Parameters:
+    - groups (list of np.ndarray): Each element is the matrix returned from CalculateIter
+    - group_names (list of str): Names of the groups for labeling the plots
+    """
+    for matrix, name in zip(groups, group_names):
+        # ממוצע לפי איטרציה (עמודה) על כל הריצות
+        avg_per_iteration = matrix.mean(axis=0)
+
+        plt.figure(figsize=(8,5))
+        plt.plot(range(1, len(avg_per_iteration)+1), avg_per_iteration, marker='o')
+        plt.title(f"Average Spread per Iteration - {name}")
+        plt.xlabel("Iteration Step")
+        plt.ylabel("Average Newly Activated Nodes")
+        plt.grid(True, linestyle="--", alpha=0.6)
+        plt.savefig(f"{name}_average.png", dpi=300)
+        plt.show()
+
+
 def CreateGroupsColors(color):
     """
        Creates two groups of nodes based on color: the last 30 nodes by out-degree
@@ -944,6 +967,8 @@ def SpreadIC():
     GroupRedLast30,GroupRedMostConnected = CreateGroupsColors("red")
     GroupBlueLast30,GroupBlueMostConnected = CreateGroupsColors("blue")
 
+    group_names = ["Red Last 30", "Red Most Connected", "Blue Last 30", "Blue Most Connected"]
+
     AllGroups = []
     red_totals = []
     blue_totals = []
@@ -953,6 +978,8 @@ def SpreadIC():
         AllGroups.append(mat)
         red_totals.append(red)
         blue_totals.append(blue)
+
+    PlotAveragePerGroup(AllGroups, group_names)
 
     all_red_matrix = np.vstack(red_totals)  # כל מטריצה של קבוצות מוערמת למטריצה אחת
     all_blue_matrix = np.vstack(blue_totals)

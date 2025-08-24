@@ -784,7 +784,6 @@ def AddProbToGraph():
        Returns:
        - None (modifies the graph in place)
        """
-    # יצירת הסתברויות מהמשקלים
     for u in graph.nodes():
         for v, _, data in graph.in_edges(u, data=True):
             data['prob'] = CalculateTheProb(data['weight'])
@@ -870,7 +869,7 @@ def CalculateIter(seed_node):
     all_red_counts = []
     all_blue_counts = []
 
-    for _ in range(100):
+    for _ in range(70):
         active = set(seed_node)
         newly_active = set(seed_node)
 
@@ -878,7 +877,7 @@ def CalculateIter(seed_node):
         red_counts = []
         blue_counts = []
 
-        while newly_active and len(active) < len(graph.nodes()):
+        while newly_active and len(active) < graph.number_of_nodes():
             next_new = set()
             for node in newly_active:
                 for _, neighbor, data in graph.out_edges(node, data=True):
@@ -895,12 +894,14 @@ def CalculateIter(seed_node):
         all_red_counts.append(sum(red_counts))
         all_blue_counts.append(sum(blue_counts))
 
-    max_len = max(len(x) for x in all_iter_counts)
-    matrix = np.zeros((100, max_len), dtype=int)
-    for i, run in enumerate(all_iter_counts):
-        matrix[i, :len(run)] = run
+    max_run_length = max(len(run) for run in all_iter_counts)
+    matrix = np.zeros((70, max_run_length), dtype=int)
 
-    return matrix, np.mean(all_red_counts), np.mean(all_blue_counts)
+    for row_number, run in enumerate(all_iter_counts):
+        run_length = len(run)
+        matrix[row_number, :run_length] = run
+
+    return matrix, all_red_counts,all_blue_counts
 
 def SpreadIC():
     """
@@ -925,22 +926,27 @@ def SpreadIC():
     blue_totals = []
 
     for group in [GroupRedLast30, [GroupRedMostConnected], GroupBlueLast30, [GroupBlueMostConnected]]:
-        mat, avg_red, avg_blue = CalculateIter(group)
+        mat, red, blue = CalculateIter(group)
         AllGroups.append(mat)
-        red_totals.append(avg_red)
-        blue_totals.append(avg_blue)
+        red_totals.append(red)
+        blue_totals.append(blue)
 
-    red_activated_avg = np.mean(red_totals)
-    blue_activated_avg = np.mean(blue_totals)
+    all_red_matrix = np.vstack(red_totals)  # כל מטריצה של קבוצות מוערמת למטריצה אחת
+    all_blue_matrix = np.vstack(blue_totals)
 
-    red_percent = red_activated_avg / len(red_nodes) * 100
-    blue_percent = blue_activated_avg / len(blue_nodes) * 100
+    # ממוצע לפי עמודה (שלב)
+    red_activated_avg_per_step = np.mean(all_red_matrix, axis=0)
+    blue_activated_avg_per_step = np.mean(all_blue_matrix, axis=0)
+
+    # אחוזים לפי שלב
+    red_percent_per_step = red_activated_avg_per_step / len(red_nodes) * 100
+    blue_percent_per_step = blue_activated_avg_per_step / len(blue_nodes) * 100
 
     BigGroups = AvarageGroups(AllGroups)
     PrintGraph(BigGroups)
 
-    print(f"Red activated (avg): {red_percent:.2f}%")
-    print(f"Blue activated (avg): {blue_percent:.2f}%")
+    print(f"Red activated: {np.mean(red_percent_per_step):.2f}%")
+    print(f"Blue activated: {np.mean(blue_percent_per_step):.2f}%")
 #----------------------------------------------------------- Start------------------------------------------------------
 
 file_path = "largest_scc_edges.csv"

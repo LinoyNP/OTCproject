@@ -903,6 +903,28 @@ def CalculateIter(seed_node):
 
     return matrix, all_red_counts,all_blue_counts
 
+def PrintGraphDual(red_from_blue, blue_from_red):
+    """
+    Plots a line graph showing:
+    - Red nodes activated from blue seeds
+    - Blue nodes activated from red seeds
+
+    Parameters:
+    - red_from_blue (np.ndarray): Average newly activated red nodes per step from blue seeds
+    - blue_from_red (np.ndarray): Average newly activated blue nodes per step from red seeds
+    """
+    plt.figure(figsize=(8,5))
+    plt.plot(range(len(red_from_blue)), red_from_blue, marker='o', color='red', label='Red from Blue seeds')
+    plt.plot(range(len(blue_from_red)), blue_from_red, marker='o', color='blue', label='Blue from Red seeds')
+    plt.title("Cross-color Spread per Iteration Step")
+    plt.xlabel("Iteration Step")
+    plt.ylabel("Average Newly Activated Nodes")
+    plt.grid(True, linestyle="--", alpha=0.6)
+    plt.legend()
+    plt.savefig("cross_color_spread.png", dpi=300)
+    plt.show()
+
+
 def SpreadIC():
     """
        Main function to run the Independent Cascade model on predefined groups of nodes,
@@ -970,7 +992,6 @@ with open(file_path, 'rt') as f:
                 year=row["year"]  # שמור את השנה כ-attribute
             )
 
-
 #-----------------------------------calls for the functions-------------------------------------------------------------
 settingOfSCCgraph(graph)
 #BehavioralHomophily(graph)
@@ -988,3 +1009,54 @@ settingOfSCCgraph(graph)
 red_nodes = {n for n in graph.nodes() if graph.nodes[n].get("color") == "red"}
 blue_nodes = set(graph.nodes()) - red_nodes
 SpreadIC()
+
+
+
+#NOT USED IN THE END------------------another version of SpreadIC---------------------------------
+
+def SpreadICVer02():
+    """
+    #        Main function to run the Independent Cascade model on predefined groups of nodes,
+    #        calculate average activations, plot the spread over iterations, and print
+    #        the average percentages of red and blue nodes activated.
+    #
+    #        Parameters:
+    #        - None (uses the global 'graph', 'red_nodes', and 'blue_nodes')
+    #
+    #        Returns:
+    #        - None (prints percentages and shows the graph)
+    #        """
+    AddProbToGraph()
+
+    GroupRedLast30, GroupRedMostConnected = CreateGroupsColors("red")
+    GroupBlueLast30, GroupBlueMostConnected = CreateGroupsColors("blue")
+
+    red_activated_from_blue = []
+    blue_activated_from_red = []
+
+    # ריצות קבוצות אדומות
+    for group in [GroupRedLast30, [GroupRedMostConnected]]:
+        _, red, blue = CalculateIter(group)
+        # כמה כחולים נדלקו מהריצה של אדומים
+        blue_activated_from_red.append(blue)
+
+    # ריצות קבוצות כחולות
+    for group in [GroupBlueLast30, [GroupBlueMostConnected]]:
+        _, red, blue = CalculateIter(group)
+        # כמה אדומים נדלקו מהריצה של כחולים
+        red_activated_from_blue.append(red)
+
+    # ממיר לכל מטריצה
+    red_from_blue_matrix = np.vstack(red_activated_from_blue)
+    blue_from_red_matrix = np.vstack(blue_activated_from_red)
+
+    # ממוצע לפי שלב
+    red_from_blue_avg_per_step = np.mean(red_from_blue_matrix, axis=0)
+    blue_from_red_avg_per_step = np.mean(blue_from_red_matrix, axis=0)
+
+    # גרף
+    PrintGraphDual(red_from_blue_avg_per_step, blue_from_red_avg_per_step)
+
+    # הדפסה של אחוז כולל
+    print(f"Red activated from blue seeds (overall avg): {np.mean(red_from_blue_avg_per_step / len(red_nodes) * 100):.2f}%")
+    print(f"Blue activated from red seeds (overall avg): {np.mean(blue_from_red_avg_per_step / len(blue_nodes) * 100):.2f}%")

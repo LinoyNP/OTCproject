@@ -906,7 +906,7 @@ def PrintGraph(final_avg):
 
 def CalculateIter(seed_node):
     """
-        Runs multiple simulations (100 by default) of the Independent Cascade (IC) model
+        Runs multiple simulations (70 by default) of the Independent Cascade (IC) model
         starting from the given seed node(s), recording how many nodes are activated
         per iteration.
 
@@ -914,7 +914,7 @@ def CalculateIter(seed_node):
         - seed_node (list or set): Nodes to start the spread from
 
         Returns:
-        - matrix (np.ndarray): Shape (100, max_steps), number of newly activated nodes per iteration
+        - matrix (np.ndarray): Shape (70, max_steps), number of newly activated nodes per iteration
         - avg_red (float): Average number of red nodes activated per simulation
         - avg_blue (float): Average number of blue nodes activated per simulation
         """

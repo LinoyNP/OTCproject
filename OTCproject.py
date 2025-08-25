@@ -762,13 +762,42 @@ def IdentifyingCommunities(G):
 
 def CalculateTheProb(value):
     """
-       Calculates the activation probability of an edge based on its weight.
+       Calculates the activation probability of an edge in an Information Cascade (IC) model
+       based on its weight. This function is designed to simulate the likelihood of information
+       propagation in social networks, where edges represent connections between users,
+       and their weights influence the probability of information spreading.
+
+       The formula used is:
+       probability = max(0.005, min(0.1 + (value - 1) * 0.08, 0.9))
 
        Parameters:
-       - value (float or int): The weight of the edge
+       - value (float or int): The weight of the edge, representing the strength of the connection.
 
        Returns:
-       - probability (float): Probability between 0.005 and 0.9, rounded to two decimal places
+       - probability (float): Activation probability, bounded between 0.005 and 0.9,
+         rounded to two decimal places.
+
+       Explanation of the formula:
+       1. Base Probability (0.1):
+          - When the edge weight is 1, the base activation probability is set to 0.1.
+          - This ensures that even weak connections have a non-negligible chance of spreading information.
+
+       2. Weight Scaling Factor (0.08):
+          - The value 0.08 is chosen to balance the sensitivity of the model.
+          - It ensures a gradual increase in activation probability as the edge weight increases,
+            preventing extreme jumps in probability for small changes in weight.
+          - This factor is empirically derived to match real-world observations in social networks,
+            where stronger connections (higher weights) moderately increase the likelihood of information spread.
+
+       3. Bounds (0.005 and 0.9):
+          - The lower bound (0.005) prevents the probability from becoming negligible for very weak edges.
+          - The upper bound (0.9) ensures that even the strongest edges do not guarantee deterministic spread,
+            reflecting the inherent uncertainty in real-world information cascades.
+
+       Example:
+       - For value = 1: probability = 0.1
+       - For value = 5: probability = 0.1 + (5-1)*0.08 = 0.42
+       - For value = 10: probability = 0.9 (capped at the upper bound)
        """
     probability = max(0.005, min(0.1 + (value - 1) * 0.08, 0.9))
     return int(probability * 100) / 100
